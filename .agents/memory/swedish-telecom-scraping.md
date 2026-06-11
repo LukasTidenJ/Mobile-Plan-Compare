@@ -9,46 +9,55 @@ description: How to scrape prices from Swedish mobile operators (TRE, Tele2, Com
 
 ### TRE — Hardcoded
 - Prices from paper: Obegränsad 299kr, 50GB 249kr, 12GB 219kr
+- Family: 129 kr/mån per extra person, unlimited plans only
 - No public API or scrapable page found
 
-### Vimla — GTM Ecommerce JSON (most reliable)
+### Vimla — GTM Ecommerce JSON + markdown fallback
 - URL: `https://vimla.se/` (homepage)
-- Plans embedded as JSON in `data-gtm` attributes on DOM elements
+- Primary: markdown-style regex `### X GB ... därefter Y kr/mån` on stripped HTML
+- Fallback: GTM ecommerce JSON in `data-gtm` attributes
 - Pattern: `data-gtm="&quot;data&quot;:{&quot;ecommerce&quot;:{&quot;items&quot;:[...]}}"`
 - After decoding `&quot;` → `"`, parse as JSON: `obj.data.ecommerce.items`
 - Item format: `{ item_name: "regular 5 GB", price: 120 }` (item_name like "regular X GB")
-- 2025/2026 plans: 5GB=120, 10GB=170, 15GB=210, 25GB=260, 100GB=370 kr/mån
-- Note: "DOUBLE_DATA_24M" promo doubles GB for 24 months, so "5GB" plan user gets 10GB
+- **No family plan** — each person needs a separate subscription at full price
+- Tipsrabatt (10 kr/mån referral) exists but is not modeled in the app
 
 ### Comviq — SSR Regex on /mobilabonnemang
 - URL: `https://www.comviq.se/mobilabonnemang` (1MB SSR HTML)
-- Has actual kr/mån prices in SSR content (Astro.js with SSR props)
-- Plans found: 100GB=359, 20GB=229, 5GB=129 kr/mån
+- Pattern: `Mobilabonnemang . Nu: X GB . Tidigare:Y kr/mån . Nu:Z kr/mån`
+- Family URL: `https://www.comviq.se/mobilabonnemang/familj`
+- Family price: scrape "Lägg till medlemmar X kr/mån" or "för bara X kr/mån per abonnemang"
 - No Obegränsad plan available
 
 ### Tele2 — Tier-based Price Matching
-- URL: `https://www.tele2.se/privat/` (722KB)
-- Page has 149/199/249/299 kr/mån prices in SSR HTML but no GB amounts nearby
-- Use tier-based mapping: 149→25GB, 199→50GB, 249→100GB, 299→Obegränsad
-- Verify: extract all prices in 100-500 kr range and match against known tier points
+- URL: `https://www.tele2.se/mobilabonnemang`
+- Tier mapping (original price → plan): 329→15GB, 479→Obegränsad, 519→Obegränsad Max
+- Also try generic GB→price extraction with wider window
+- Family URL: `https://www.tele2.se/mobilabonnemang/familj` — extra user ~149 kr/mån
 
-### Telenor — Hero Text Extraction
+### Telenor — Hero Text + GB/Price Extraction
 - URL: `https://www.telenor.se/mobilabonnemang/` (69KB)
 - Page uses HTML entities: `&aring;`→å, `&auml;`→ä — MUST decode before regex
-- Hero text: "Surfa obegränsat med 5G från 449 kr/mån" → extract 449 as Obegränsat price
+- Hero text: "Surfa obegränsat med 5G från X kr/mån" → extract as Obegränsad price
 - Pattern: `/Surfa\s+obegr[åa]nsat[^<]{0,100}?(\d{3,4})\s*kr\/m[åa]n/i`
-- No individual GB plan data in SSR HTML
+- Family URL: `https://www.telenor.se/handla/mobilabonnemang/telenor-familj/` (NOT `/mobilabonnemang/familj`)
+- Family price: `"discountedPrice":"229 kr/mån"` in page JSON, or "Lägg till extra användare ... X kr/mån"
 
-### Telia — Cannot Scrape (CSR)
-- Next.js app with client-side rendering
-- SSR HTML has `__NEXT_DATA__` of only 187 chars (empty)
-- SVG path data in page contains numbers that can be mistaken for prices (e.g. 669 from SVG coordinate 16.697)
-- Return error: "Besök telia.se för aktuella priser"
+### Telia — SSR Regex Attempt (fragile)
+- URL: `https://www.telia.se/mobilabonnemang`
+- Next.js CSR — SSR may or may not contain plan cards
+- Pattern: `Mobilabonnemang ... (Obegränsad Plus|X GB) ... Visa detaljer Y kr/mån Z kr/mån`
+- Family URL: `https://www.telia.se/mobilabonnemang/familj`
+- Family price: `Ord. pris X kr/mån` or `Ordinarie pris: X kr/mån`, unlimited only
+- SVG path data can cause false positives — always strip SVGs first
+- Falls back to error if zero plans scraped
 
-### Fello — Cannot Scrape (CSR)
-- Gatsby.js app with client-side rendering
-- Homepage shows 120 in OG image URL, not a price
-- Return error: "Besök fello.se för aktuella priser"
+### Fello — Markdown Regex Attempt (fragile)
+- URL: `https://fello.se/mobilabonnemang/`
+- Gatsby CSR — page must exceed 10KB for scrape attempt
+- Pattern: `### X GB|Obegränsad ... därefter Y kr/mån`
+- **No family plan** — each person needs a separate subscription at full price
+- Falls back to error if zero plans scraped
 
 ## Critical Techniques
 
@@ -74,9 +83,20 @@ const re = /data-gtm="({[^"]+})"/gi;
 Many telecom pages put GB amounts and prices in different DOM sections (far apart).
 Forward regex (GB→price within N chars) doesn't work. Strategies:
 1. GTM ecommerce JSON (best)
-2. Tier-based price matching (Tele2)
-3. Hero text extraction (Telenor)
-4. SSR props scanning (Comviq)
+2. Site-specific SSR patterns (Comviq, Telia)
+3. Tier-based price matching (Tele2)
+4. Hero text extraction (Telenor)
+5. Markdown-style regex (Fello, Vimla)
+
+### Family Pricing Summary
+| Operator | Family? | extraUserPrice source |
+|----------|---------|----------------------|
+| TRE | Yes (unlimited only) | Hardcoded 129 kr |
+| Telia | Yes (unlimited only) | `/mobilabonnemang/familj` |
+| Tele2/Comviq | Yes | `/mobilabonnemang/familj` |
+| Telenor | Yes | `/handla/mobilabonnemang/telenor-familj/` |
+| Fello | **No** | — |
+| Vimla | **No** | — |
 
 **Why:** Saved to avoid re-discovering these scraping approaches in future sessions.
 **How to apply:** When updating the scraper at `artifacts/api-server/src/lib/scraper.ts`

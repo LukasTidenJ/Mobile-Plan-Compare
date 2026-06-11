@@ -58,6 +58,8 @@ router.get("/", async (_req, res) => {
       plans: [],
       lastUpdated: new Date().toISOString(),
       isLive: true,
+      extraUserPrice: null,
+      extraUserOnlyUnlimited: false,
       error: r.status === "rejected" ? String(r.reason) : "Okänt fel",
     };
   });

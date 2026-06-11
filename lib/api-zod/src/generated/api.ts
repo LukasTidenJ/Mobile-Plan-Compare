@@ -36,6 +36,8 @@ export const GetAllPricesResponse = zod.object({
 })),
   "lastUpdated": zod.coerce.date(),
   "isLive": zod.boolean().describe('Whether prices are live-fetched or hardcoded'),
+  "extraUserPrice": zod.number().nullish().describe('Price per extra user when available'),
+  "extraUserOnlyUnlimited": zod.boolean().optional().describe('Whether the extra-user price only applies to unlimited plans'),
   "error": zod.string().nullish().describe('Error message if prices could not be fetched')
 })),
   "fetchedAt": zod.coerce.date()
@@ -64,6 +66,8 @@ export const GetOperatorPricesResponse = zod.object({
 })),
   "lastUpdated": zod.coerce.date(),
   "isLive": zod.boolean().describe('Whether prices are live-fetched or hardcoded'),
+  "extraUserPrice": zod.number().nullish().describe('Price per extra user when available'),
+  "extraUserOnlyUnlimited": zod.boolean().optional().describe('Whether the extra-user price only applies to unlimited plans'),
   "error": zod.string().nullish().describe('Error message if prices could not be fetched')
 })
 

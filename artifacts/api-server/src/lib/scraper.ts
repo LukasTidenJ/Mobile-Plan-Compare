@@ -16,6 +16,8 @@ export interface OperatorPrices {
   plans: PlanPrice[];
   lastUpdated: string;
   isLive: boolean;
+  extraUserPrice: number | null;
+  extraUserOnlyUnlimited: boolean;
   error: string | null;
 }
 
@@ -201,58 +203,74 @@ function sortPlans(plans: PlanPrice[]): PlanPrice[] {
   });
 }
 
-// ─── TRE (hardcoded from official price list) ────────────────────────────────
-export async function fetchTre(): Promise<OperatorPrices> {
+function makeBaseOperator(
+  id: string,
+  name: string,
+  parentOperator: string | null,
+  isLive = true
+): OperatorPrices {
   return {
-    id: "tre",
-    name: "TRE",
-    parentOperator: null,
-    plans: [
-      makePlan("TRE", "Obegränsad", 299),
-      makePlan("TRE", "50GB", 249),
-      makePlan("TRE", "12GB", 219),
-    ],
+    id,
+    name,
+    parentOperator,
+    plans: [],
     lastUpdated: new Date().toISOString(),
-    isLive: false,
+    isLive,
+    extraUserPrice: null,
+    extraUserOnlyUnlimited: false,
     error: null,
   };
 }
 
+// ─── TRE (hardcoded from official price list) ────────────────────────────────
+export async function fetchTre(): Promise<OperatorPrices> {
+  const base = makeBaseOperator("tre", "TRE", null, false);
+  base.extraUserPrice = 129;
+  base.extraUserOnlyUnlimited = true;
+  base.plans = [
+    makePlan("TRE", "Obegränsad", 299),
+    makePlan("TRE", "50GB", 249),
+    makePlan("TRE", "12GB", 219),
+  ];
+  return base;
+}
+
 // ─── COMVIQ (/mobilabonnemang has 1MB of SSR content) ────────────────────────
 export async function fetchComviq(): Promise<OperatorPrices> {
-  const base: OperatorPrices = {
-    id: "comviq",
-    name: "Comviq",
-    parentOperator: "tele2",
-    plans: [],
-    lastUpdated: new Date().toISOString(),
-    isLive: true,
-    error: null,
-  };
+  const base = makeBaseOperator("comviq", "Comviq", "tele2", true);
 
   try {
     const html = await fetchHtml("https://www.comviq.se/mobilabonnemang");
-    const pairs = extractGbPricePairs(html, {
-      maxGb: 300,
-      minPrice: 50,
-      maxPrice: 800,
-      windowChars: 1200,
-    });
+    const cleaned = decodeEntities(stripScripts(html));
 
-    // Comviq also sells prepaid (kontantkort) — filter out suspiciously cheap large plans
-    const filtered = pairs.filter((p) => {
-      const gb = parseGb(p.gbStr);
-      if (gb !== null && gb >= 30 && p.price < 80) return false;
-      return true;
-    });
+    const plans: PlanPrice[] = [];
+    const seen = new Set<string>();
+    const planRe = /Mobilabonnemang\s*\.\s*Nu:\s*(\d{1,3})\s*GB\s*\.\s*Tidigare:(\d{2,4})\s*kr\/mån\.\s*Nu:(\d{2,4})\s*kr\/mån/gi;
+    let match: RegExpExecArray | null;
+    while ((match = planRe.exec(cleaned)) !== null) {
+      const dataAmount = `${parseInt(match[1])}GB`;
+      const originalPrice = parseInt(match[2]);
+      if (!seen.has(dataAmount)) {
+        seen.add(dataAmount);
+        plans.push(makePlan("Comviq", dataAmount, originalPrice));
+      }
+    }
 
-    base.plans = sortPlans(filtered.map((p) => makePlan("Comviq", p.gbStr, p.price)));
+    const familyHtml = await fetchHtml("https://www.comviq.se/mobilabonnemang/familj");
+    const familyPriceMatch = familyHtml.match(/Lägg till medlemmar\s*(\d{2,4})\s*kr\/mån/i)
+      ?? familyHtml.match(/för bara\s*(\d{2,4})\s*kr\/mån per abonnemang/i);
+    if (familyPriceMatch?.[1]) {
+      base.extraUserPrice = parseInt(familyPriceMatch[1]);
+      base.extraUserOnlyUnlimited = false;
+    }
+
+    base.plans = sortPlans(plans);
 
     if (base.plans.length === 0) {
-      base.error = "Kunde inte hämta priser";
+      base.error = "Besök comviq.se för aktuella priser";
     }
   } catch (err) {
-    base.error = `Besök comviq.se för priser`;
+    base.error = `Besök comviq.se för aktuella priser`;
   }
 
   return base;
@@ -260,34 +278,25 @@ export async function fetchComviq(): Promise<OperatorPrices> {
 
 // ─── TELE2 (/privat/ has 700KB SSR page; prices are in page but not near GB amounts) ──
 export async function fetchTele2(): Promise<OperatorPrices> {
-  const base: OperatorPrices = {
-    id: "tele2",
-    name: "Tele2",
-    parentOperator: null,
-    plans: [],
-    lastUpdated: new Date().toISOString(),
-    isLive: true,
-    error: null,
-  };
+  const base = makeBaseOperator("tele2", "Tele2", null, true);
 
-  // Tele2 plan tiers (GB label → expected price mapping for tier recognition)
+  // Tele2 plan tiers (original price → expected plan label)
   const TELE2_TIERS: Record<number, string> = {
-    149: "25GB",
-    199: "50GB",
-    249: "100GB",
-    299: "Obegränsad",
+    329: "15GB",
+    479: "Obegränsad",
+    519: "Obegränsad Max",
   };
 
   try {
-    const html = await fetchHtml("https://www.tele2.se/privat/");
+    const html = await fetchHtml("https://www.tele2.se/mobilabonnemang");
     const decoded = decodeEntities(html);
 
     // Step 1: Extract prices from page using known Tele2 subscription price points
-    const priceRe = /(\d{2,3})\s*kr\/m[åa]n/gi;
+    const priceRe = /Tidigare:(\d{2,3})\s*kr\/mån|Från\s+(\d{2,3})\s*kr\/mån/gi;
     let m: RegExpExecArray | null;
     const rawPrices: number[] = [];
     while ((m = priceRe.exec(decoded)) !== null) {
-      const v = parseInt(m[1]);
+      const v = parseInt(m[1] ?? m[2]);
       if (v >= 100 && v <= 500) rawPrices.push(v);
     }
     const uniquePrices = [...new Set(rawPrices)].sort((a, b) => a - b);
@@ -303,10 +312,17 @@ export async function fetchTele2(): Promise<OperatorPrices> {
     const pairs = extractGbPricePairs(decoded, {
       maxGb: 400,
       minPrice: 100,
-      maxPrice: 500,
+      maxPrice: 700,
       windowChars: 3000,
     });
     const scrapedPlans = pairs.map((p) => makePlan("Tele2", p.gbStr, p.price));
+
+    const familyHtml = await fetchHtml("https://www.tele2.se/mobilabonnemang/familj");
+    const familyMatch = familyHtml.match(/149\s*kr\/mån/i);
+    if (familyMatch) {
+      base.extraUserPrice = 149;
+      base.extraUserOnlyUnlimited = false;
+    }
 
     // Merge: prefer tier-based when prices match known points, fill in any scraping extras
     const merged = new Map<string, PlanPrice>();
@@ -315,9 +331,7 @@ export async function fetchTele2(): Promise<OperatorPrices> {
 
     base.plans = sortPlans([...merged.values()]);
 
-    if (base.plans.length === 0) {
-      base.error = "Besök tele2.se för aktuella priser";
-    }
+    if (base.plans.length === 0) base.error = "Besök tele2.se för aktuella priser";
   } catch {
     base.error = "Besök tele2.se för aktuella priser";
   }
@@ -327,28 +341,48 @@ export async function fetchTele2(): Promise<OperatorPrices> {
 
 // ─── TELIA (Next.js CSR — no reliable price data in SSR HTML) ───────────────
 export async function fetchTelia(): Promise<OperatorPrices> {
-  return {
-    id: "telia",
-    name: "Telia",
-    parentOperator: null,
-    plans: [],
-    lastUpdated: new Date().toISOString(),
-    isLive: true,
-    error: "Besök telia.se för aktuella priser",
-  };
+  const base = makeBaseOperator("telia", "Telia", null, true);
+
+  try {
+    const html = await fetchHtml("https://www.telia.se/mobilabonnemang");
+    const familyHtml = await fetchHtml("https://www.telia.se/mobilabonnemang/familj");
+    const cleaned = decodeEntities(stripScripts(html));
+
+    const plans: PlanPrice[] = [];
+    const seen = new Set<string>();
+    const planRe = /Mobilabonnemang[\s\S]{0,220}?(Obegränsad(?:\s+Plus)?|\d{1,3}\s*GB)[\s\S]{0,220}?Visa detaljer\s+(\d{2,4})\s*kr\/mån\s+(\d{2,4})\s*kr\/mån/gi;
+    let match: RegExpExecArray | null;
+    while ((match = planRe.exec(cleaned)) !== null) {
+      const rawAmount = match[1].replace(/\s+/g, "");
+      const dataAmount = rawAmount.includes("Obegr") ? "Obegränsad" : rawAmount;
+      const originalPrice = parseInt(match[2]);
+      if (!seen.has(dataAmount)) {
+        seen.add(dataAmount);
+        plans.push(makePlan("Telia", dataAmount, originalPrice));
+      }
+    }
+
+    const extraUserMatch = familyHtml.match(/Ord\.?\s*pris\s*(\d{2,4})\s*kr\/mån/i)
+      ?? familyHtml.match(/Ordinarie pris:?\s*(\d{2,4})\s*kr\/mån/i);
+    if (extraUserMatch?.[1]) {
+      base.extraUserPrice = parseInt(extraUserMatch[1]);
+      base.extraUserOnlyUnlimited = true;
+    }
+
+    base.plans = sortPlans(plans);
+    if (base.plans.length === 0) {
+      base.error = "Besök telia.se för aktuella priser";
+    }
+  } catch {
+    base.error = "Besök telia.se för aktuella priser";
+  }
+
+  return base;
 }
 
 // ─── FELLO (Gatsby CSR — subscription page) ──────────────────────────────────
 export async function fetchFello(): Promise<OperatorPrices> {
-  const base: OperatorPrices = {
-    id: "fello",
-    name: "Fello",
-    parentOperator: "telia",
-    plans: [],
-    lastUpdated: new Date().toISOString(),
-    isLive: true,
-    error: null,
-  };
+  const base = makeBaseOperator("fello", "Fello", "telia", true);
 
   try {
     const html = await fetchHtml("https://fello.se/mobilabonnemang/");
@@ -356,17 +390,23 @@ export async function fetchFello(): Promise<OperatorPrices> {
       base.error = "Besök fello.se för aktuella priser";
       return base;
     }
-    const pairs = extractGbPricePairs(html, {
-      maxGb: 500,
-      minPrice: 60,
-      maxPrice: 600,
-      windowChars: 1500,
-    });
 
-    // Fello prices are in the 60-300 kr range; filter out meta/image artifacts
-    const valid = pairs.filter((p) => p.price >= 60 && p.price <= 400);
-    base.plans = sortPlans(valid.map((p) => makePlan("Fello", p.gbStr, p.price)));
+    const cleaned = decodeEntities(stripScripts(html));
+    const plans: PlanPrice[] = [];
+    const seen = new Set<string>();
+    const planRe = /###\s*(\d{1,3}\s*GB|Obegränsad)[\s\S]{0,240}?därefter\s*(\d{2,4})\s*kr\/mån/gi;
+    let match: RegExpExecArray | null;
+    while ((match = planRe.exec(cleaned)) !== null) {
+      const rawAmount = match[1].replace(/\s+/g, "");
+      const dataAmount = rawAmount.includes("Obegr") ? "Obegränsad" : rawAmount;
+      const price = parseInt(match[2]);
+      if (!seen.has(dataAmount)) {
+        seen.add(dataAmount);
+        plans.push(makePlan("Fello", dataAmount, price));
+      }
+    }
 
+    base.plans = sortPlans(plans);
     if (base.plans.length === 0) {
       base.error = "Besök fello.se för aktuella priser";
     }
@@ -379,15 +419,7 @@ export async function fetchFello(): Promise<OperatorPrices> {
 
 // ─── TELENOR (/mobilabonnemang/ returns useful hero text with Obegränsat price)
 export async function fetchTelenor(): Promise<OperatorPrices> {
-  const base: OperatorPrices = {
-    id: "telenor",
-    name: "Telenor",
-    parentOperator: null,
-    plans: [],
-    lastUpdated: new Date().toISOString(),
-    isLive: true,
-    error: null,
-  };
+  const base = makeBaseOperator("telenor", "Telenor", null, true);
 
   try {
     const html = await fetchHtml("https://www.telenor.se/mobilabonnemang/");
@@ -409,8 +441,6 @@ export async function fetchTelenor(): Promise<OperatorPrices> {
       if (m) {
         const fromPrice = parseInt(m[1]);
         base.plans.push(makePlan("Telenor", "Obegränsad", fromPrice));
-        base.error =
-          "Startpris – välj plan på telenor.se för exakt pris";
       }
 
       // Also try to find fixed-data plans from the same page
@@ -430,9 +460,22 @@ export async function fetchTelenor(): Promise<OperatorPrices> {
       }
     }
 
-    if (base.plans.length === 0) {
-      base.error = "Besök telenor.se för aktuella priser";
+    const familyHtml = await fetchHtml(
+      "https://www.telenor.se/handla/mobilabonnemang/telenor-familj/",
+    );
+    const familyMatch =
+      familyHtml.match(
+        /"discountedPrice":"(\d{2,3})\s*kr\/mån"/i,
+      ) ??
+      familyHtml.match(
+        /Lägg till extra användare[\s\S]{0,200}?(\d{2,3})\s*kr\/mån/i,
+      );
+    if (familyMatch?.[1]) {
+      base.extraUserPrice = parseInt(familyMatch[1]);
+      base.extraUserOnlyUnlimited = false;
     }
+
+    if (base.plans.length === 0) base.error = "Besök telenor.se för aktuella priser";
   } catch {
     base.error = "Besök telenor.se för aktuella priser";
   }
@@ -496,15 +539,7 @@ function parseGbFromName(name: string): { gbStr: string; isUnlimited: boolean } 
 
 // ─── VIMLA (uses GTM ecommerce data embedded in HTML) ─────────────────────────
 export async function fetchVimla(): Promise<OperatorPrices> {
-  const base: OperatorPrices = {
-    id: "vimla",
-    name: "Vimla",
-    parentOperator: "telenor",
-    plans: [],
-    lastUpdated: new Date().toISOString(),
-    isLive: true,
-    error: null,
-  };
+  const base = makeBaseOperator("vimla", "Vimla", "telenor", true);
 
   try {
     const html = await fetchHtml("https://vimla.se/");
@@ -513,15 +548,28 @@ export async function fetchVimla(): Promise<OperatorPrices> {
       return base;
     }
 
-    // Try GTM ecommerce items first (most reliable)
-    const gtmItems = extractGtmEcommerceItems(html);
-    if (gtmItems.length > 0) {
-      const seen = new Set<string>();
+    const cleaned = decodeEntities(stripScripts(html));
+    const plans: PlanPrice[] = [];
+    const seen = new Set<string>();
+    const planRe = /###\s*(\d{1,3}\s*GB|Obegränsad)[\s\S]{0,240}?därefter\s*(\d{2,4})\s*kr\/mån/gi;
+    let match: RegExpExecArray | null;
+    while ((match = planRe.exec(cleaned)) !== null) {
+      const rawAmount = match[1].replace(/\s+/g, "");
+      const dataAmount = rawAmount.includes("Obegr") ? "Obegränsad" : rawAmount;
+      const price = parseInt(match[2]);
+      if (!seen.has(dataAmount)) {
+        seen.add(dataAmount);
+        plans.push(makePlan("Vimla", dataAmount, price));
+      }
+    }
+
+    if (plans.length === 0) {
+      const gtmItems = extractGtmEcommerceItems(html);
       for (const item of gtmItems) {
         const { gbStr, isUnlimited } = parseGbFromName(item.name);
         if (!seen.has(gbStr)) {
           seen.add(gbStr);
-          base.plans.push({
+          plans.push({
             name: `Vimla ${gbStr}`,
             dataAmount: gbStr,
             dataGb: isUnlimited ? null : parseGb(gbStr),
@@ -533,23 +581,9 @@ export async function fetchVimla(): Promise<OperatorPrices> {
       }
     }
 
-    // Fallback: regex extraction
-    if (base.plans.length === 0) {
-      const pairs = extractGbPricePairs(html, {
-        maxGb: 500,
-        minPrice: 80,
-        maxPrice: 600,
-        windowChars: 1000,
-      });
-      const valid = pairs.filter((p) => p.price >= 80);
-      base.plans = valid.map((p) => makePlan("Vimla", p.gbStr, p.price));
-    }
+    base.plans = sortPlans(plans);
 
-    base.plans = sortPlans(base.plans);
-
-    if (base.plans.length === 0) {
-      base.error = "Besök vimla.se för aktuella priser";
-    }
+    if (base.plans.length === 0) base.error = "Besök vimla.se för aktuella priser";
   } catch {
     base.error = "Besök vimla.se för aktuella priser";
   }

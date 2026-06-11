@@ -124,6 +124,12 @@ components:
         isLive:
           type: boolean
           description: Whether prices are live-fetched or hardcoded
+        extraUserPrice:
+          type: ["number", "null"]
+          description: Price per extra user when the operator supports family or shared subscriptions
+        extraUserOnlyUnlimited:
+          type: boolean
+          description: Whether the extra-user price only applies to unlimited plans
         error:
           type: ["string", "null"]
           description: Error message if prices could not be fetched

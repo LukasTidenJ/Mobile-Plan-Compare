@@ -42,6 +42,10 @@ export interface OperatorPrices {
   lastUpdated: string;
   /** Whether prices are live-fetched or hardcoded */
   isLive: boolean;
+  /** Price per extra user when available */
+  extraUserPrice?: number | null;
+  /** Whether the extra-user price only applies to unlimited plans */
+  extraUserOnlyUnlimited?: boolean;
   /**
      * Error message if prices could not be fetched
      * @nullable
