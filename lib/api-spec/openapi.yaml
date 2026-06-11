@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: API specification
@@ -10,6 +9,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: prices
+    description: Mobile subscription price operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /prices:
+    get:
+      operationId: getAllPrices
+      tags: [prices]
+      summary: Get all operator prices
+      description: Returns current prices for all mobile operators including subsidiaries
+      responses:
+        "200":
+          description: All operator prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllOperatorPrices"
+
+  /prices/{operatorId}:
+    get:
+      operationId: getOperatorPrices
+      tags: [prices]
+      summary: Get prices for a specific operator
+      description: Returns current subscription prices for the given operator or subsidiary
+      parameters:
+        - name: operatorId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operator prices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorPrices"
+        "404":
+          description: Operator not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +72,72 @@ components:
       required:
         - status
 
+    PlanPrice:
+      type: object
+      required:
+        - name
+        - dataAmount
+        - price
+      properties:
+        name:
+          type: string
+          description: Plan name
+        dataAmount:
+          type: string
+          description: "Data amount e.g. 'Obegränsad', '50GB', '25GB', '10GB'"
+        dataGb:
+          type: ["number", "null"]
+          description: Data in GB, null for unlimited
+        price:
+          type: number
+          description: Monthly price in SEK
+        originalPrice:
+          type: ["number", "null"]
+          description: Original price before any discount
+        isUnlimited:
+          type: boolean
+          description: Whether the plan has unlimited data
+
+    OperatorPrices:
+      type: object
+      required:
+        - id
+        - name
+        - plans
+        - lastUpdated
+        - isLive
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        parentOperator:
+          type: ["string", "null"]
+          description: Parent operator ID if this is a subsidiary
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanPrice"
+        lastUpdated:
+          type: string
+          format: date-time
+        isLive:
+          type: boolean
+          description: Whether prices are live-fetched or hardcoded
+        error:
+          type: ["string", "null"]
+          description: Error message if prices could not be fetched
+
+    AllOperatorPrices:
+      type: object
+      required:
+        - operators
+        - fetchedAt
+      properties:
+        operators:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperatorPrices"
+        fetchedAt:
+          type: string
+          format: date-time

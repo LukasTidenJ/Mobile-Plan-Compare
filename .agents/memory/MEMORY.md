@@ -1,0 +1,1 @@
+- [Swedish Telecom Scraping Techniques](swedish-telecom-scraping.md) — how to scrape TRE/Vimla/Comviq/Tele2/Telenor/Telia/Fello price data; GTM JSON trick for Vimla

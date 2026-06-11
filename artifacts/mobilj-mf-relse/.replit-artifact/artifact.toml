@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Mobilabonnemang Jämförelse"
+version = "1.0.0"
+id = "artifacts/mobilj-mf-relse"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22845
+
+[services.development]
+run = "pnpm --filter @workspace/mobilj-mf-relse run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mobilj-mf-relse", "run", "build" ]
+publicDir = "artifacts/mobilj-mf-relse/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22845"
+BASE_PATH = "/"
