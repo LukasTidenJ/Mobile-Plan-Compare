@@ -1,522 +1,560 @@
-import React, { useState, useMemo } from "react";
-import { useGetAllPrices, getGetAllPricesQueryKey } from "@workspace/api-client-react";
+import React, { useMemo, useState } from "react";
+import {
+  useGetAllPrices,
+  getGetAllPricesQueryKey,
+} from "@workspace/api-client-react";
+import { AlertCircle, RefreshCw, Wifi } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, RefreshCw, Wifi, ExternalLink } from "lucide-react";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-const OPERATOR_URLS: Record<string, string> = {
-  tre: "https://www.tre.se",
-  telia: "https://www.telia.se/privat/telefoni/mobiltelefoni/",
-  fello: "https://fello.se/mobilabonnemang/",
-  telenor: "https://www.telenor.se/mobilabonnemang/",
-  vimla: "https://vimla.se/",
-  tele2: "https://www.tele2.se/privat/",
-  comviq: "https://www.comviq.se/mobilabonnemang",
-};
-
-const OPERATOR_COLORS: Record<string, string> = {
-  tre: "bg-[#005B99] text-white",
-  telia: "bg-[#990AE3] text-white",
-  fello: "bg-[#FF4B7E] text-white",
-  halebop: "bg-[#000000] text-[#00FF00]",
-  telenor: "bg-[#00A9CE] text-white",
-  vimla: "bg-[#FF4F00] text-white",
-  tele2: "bg-[#EB2026] text-white",
-  comviq: "bg-[#FF6600] text-white",
-};
-
-interface OperatorSelection {
-  tre: string;
-  teliaGroup: string;
-  telenorGroup: string;
-  tele2Group: string;
-}
-
-interface PlanPrice {
+interface ApiPlan {
   name: string;
   dataAmount: string;
-  dataGb: number | null;
+  dataGb?: number | null;
   price: number;
-  originalPrice: number | null;
-  isUnlimited: boolean;
+  originalPrice?: number | null;
+  isUnlimited?: boolean;
 }
 
-interface OperatorData {
+interface ApiOperator {
   id: string;
   name: string;
-  parentOperator: string | null;
-  plans: PlanPrice[];
+  parentOperator?: string | null;
+  plans: ApiPlan[];
   lastUpdated: string;
   isLive: boolean;
-  error: string | null;
+  extraUserPrice?: number | null;
+  extraUserOnlyUnlimited?: boolean;
+  error?: string | null;
 }
 
-/** Find the best matching plan for the selected data amount.
- *  Returns exact match first, then closest by GB, then cheapest if nothing else works. */
+interface MatchedPlan {
+  plan: ApiPlan;
+  isExact: boolean;
+  closestLabel: string | null;
+}
+
+type GroupKey = "tre" | "telia" | "telenor" | "tele2";
+
+const GROUPS: Array<{
+  key: GroupKey;
+  label: string;
+  brandOptions: Array<{ label: string; value: string }>;
+  accent: string;
+}> = [
+  {
+    key: "tre",
+    label: "3",
+    brandOptions: [{ label: "3", value: "tre" }],
+    accent: "border-sky-400",
+  },
+  {
+    key: "telia",
+    label: "Telia",
+    brandOptions: [
+      { label: "Telia", value: "telia" },
+      { label: "Fello", value: "fello" },
+    ],
+    accent: "border-rose-400",
+  },
+  {
+    key: "telenor",
+    label: "Telenor",
+    brandOptions: [
+      { label: "Telenor", value: "telenor" },
+      { label: "Vimla", value: "vimla" },
+    ],
+    accent: "border-cyan-400",
+  },
+  {
+    key: "tele2",
+    label: "Tele2",
+    brandOptions: [
+      { label: "Tele2", value: "tele2" },
+      { label: "Comviq", value: "comviq" },
+    ],
+    accent: "border-orange-400",
+  },
+];
+
+const DATA_CHOICES = [
+  "Obegränsad",
+  "100GB",
+  "50GB",
+  "25GB",
+  "20GB",
+  "15GB",
+  "12GB",
+  "10GB",
+  "5GB",
+];
+
 function findBestPlan(
-  plans: PlanPrice[],
-  selectedData: string
-): { plan: PlanPrice; isExact: boolean; closestLabel: string | null } | null {
-  if (!plans || plans.length === 0) return null;
+  plans: ApiPlan[],
+  selectedData: string,
+): MatchedPlan | null {
+  if (!plans.length) return null;
 
-  const isUnlimitedSelected =
-    selectedData === "Obegränsad" || selectedData.toLowerCase().includes("obegr");
-
-  // Exact match
+  const wantsUnlimited =
+    selectedData === "Obegränsad" ||
+    selectedData.toLowerCase().includes("obegr");
   const exact = plans.find(
-    (p) =>
-      p.dataAmount === selectedData ||
-      (isUnlimitedSelected && p.isUnlimited)
+    (plan) =>
+      plan.dataAmount === selectedData || (wantsUnlimited && plan.isUnlimited),
   );
   if (exact) return { plan: exact, isExact: true, closestLabel: null };
 
-  if (isUnlimitedSelected) {
-    // Selected unlimited but no unlimited plan — return most expensive (largest)
-    const sorted = [...plans].sort((a, b) => (b.dataGb ?? 0) - (a.dataGb ?? 0));
-    if (sorted[0]) {
-      return { plan: sorted[0], isExact: false, closestLabel: sorted[0].dataAmount };
-    }
+  if (wantsUnlimited) {
+    const unlimited = plans.find((plan) => plan.isUnlimited);
+    if (unlimited)
+      return { plan: unlimited, isExact: false, closestLabel: "Obegränsad" };
   }
 
   const selectedGb = parseInt(selectedData.replace(/\D/g, "")) || 0;
+  const withGb = plans.filter(
+    (plan) => !plan.isUnlimited && plan.dataGb !== null,
+  );
+  if (!withGb.length) return null;
 
-  // Find closest plan (prefer equal or larger, then fall back to smaller)
-  const withGb = plans.filter((p) => !p.isUnlimited && p.dataGb !== null);
-  if (withGb.length === 0) {
-    // Only unlimited plans available
-    const unl = plans.find((p) => p.isUnlimited);
-    if (unl) return { plan: unl, isExact: false, closestLabel: "Obegränsad" };
-    return null;
-  }
-
-  // Sort by GB ascending
   const sorted = [...withGb].sort((a, b) => (a.dataGb ?? 0) - (b.dataGb ?? 0));
+  const larger = sorted.find((plan) => (plan.dataGb ?? 0) >= selectedGb);
+  if (larger)
+    return { plan: larger, isExact: false, closestLabel: larger.dataAmount };
 
-  // Find next larger or equal
-  const larger = sorted.find((p) => (p.dataGb ?? 0) >= selectedGb);
-  if (larger) return { plan: larger, isExact: false, closestLabel: larger.dataAmount };
-
-  // Fall back to largest available
   const biggest = sorted[sorted.length - 1];
-  // Also consider unlimited if it exists
-  const unlPlan = plans.find((p) => p.isUnlimited);
-  if (unlPlan && !biggest) return { plan: unlPlan, isExact: false, closestLabel: "Obegränsad" };
-  if (unlPlan && biggest) {
-    return { plan: unlPlan, isExact: false, closestLabel: "Obegränsad" };
-  }
-  if (biggest) return { plan: biggest, isExact: false, closestLabel: biggest.dataAmount };
+  return biggest
+    ? { plan: biggest, isExact: false, closestLabel: biggest.dataAmount }
+    : null;
+}
 
-  return null;
+function formatPrice(price: number) {
+  return new Intl.NumberFormat("sv-SE").format(price);
 }
 
 export default function Home() {
   const [selectedData, setSelectedData] = useState("Obegränsad");
-  const [selection, setSelection] = useState<OperatorSelection>({
-    tre: "tre",
-    teliaGroup: "telia",
-    telenorGroup: "telenor",
-    tele2Group: "tele2",
+  const [selectedBrands, setSelectedBrands] = useState<
+    Record<Exclude<GroupKey, "tre">, string>
+  >({
+    telia: "telia",
+    telenor: "telenor",
+    tele2: "tele2",
+  });
+  const [extraPeople, setExtraPeople] = useState<Record<GroupKey, number>>({
+    tre: 0,
+    telia: 0,
+    telenor: 0,
+    tele2: 0,
   });
 
-  const { data: allPrices, isLoading, error, refetch, isFetching } = useGetAllPrices({
+  const {
+    data: allPrices,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useGetAllPrices({
     query: {
       refetchInterval: 5 * 60 * 1000,
       queryKey: getGetAllPricesQueryKey(),
     },
   });
 
-  const handleGroupSelection = (group: keyof OperatorSelection, value: string) => {
-    if (value) setSelection((prev) => ({ ...prev, [group]: value }));
+  const operators = (allPrices?.operators ?? []) as ApiOperator[];
+  const operatorsById = useMemo(
+    () => new Map(operators.map((operator) => [operator.id, operator])),
+    [operators],
+  );
+
+  const getSelectedOperatorId = (groupKey: GroupKey) => {
+    if (groupKey === "tre") return "tre";
+    return selectedBrands[groupKey];
   };
 
-  const getOperatorData = (operatorId: string): OperatorData | null => {
-    if (!allPrices) return null;
-    return (allPrices.operators as OperatorData[]).find((o) => o.id === operatorId) ?? null;
-  };
+  const cards = useMemo(() => {
+    return GROUPS.map((group) => {
+      const operatorId = getSelectedOperatorId(group.key);
+      const operator = operatorsById.get(operatorId) ?? null;
+      const match = operator
+        ? findBestPlan(operator.plans, selectedData)
+        : null;
+      const supportsExtra = Boolean(
+        operator?.extraUserPrice !== null &&
+        operator?.extraUserPrice !== undefined &&
+        (!operator.extraUserOnlyUnlimited || match?.plan.isUnlimited),
+      );
+      const extraCount = supportsExtra ? extraPeople[group.key] : 0;
+      const basePrice = match?.plan.price ?? null;
+      const totalPrice =
+        basePrice !== null && operator?.extraUserPrice != null
+          ? basePrice + extraCount * operator.extraUserPrice
+          : basePrice;
 
-  const getCardData = (operatorId: string) => {
-    const op = getOperatorData(operatorId);
-    if (!op) return null;
-    const match = findBestPlan(op.plans, selectedData);
-    return { operator: op, match };
-  };
-
-  const currentCards = useMemo(() => {
-    const ids = [
-      selection.tre,
-      selection.teliaGroup,
-      selection.telenorGroup,
-      selection.tele2Group,
-    ];
-    return ids.map((id) => getCardData(id));
-  }, [allPrices, selection, selectedData]);
-
-  const minPrice = useMemo(() => {
-    const prices = currentCards
-      .map((c) => c?.match?.plan?.price)
-      .filter((p): p is number => typeof p === "number");
-    return prices.length > 0 ? Math.min(...prices) : null;
-  }, [currentCards]);
-
-  const maxPrice = useMemo(() => {
-    const prices = currentCards
-      .map((c) => c?.match?.plan?.price)
-      .filter((p): p is number => typeof p === "number");
-    return prices.length > 0 ? Math.max(...prices) : null;
-  }, [currentCards]);
-
-  // Build the data amount toggle options from available plans + a curated list
-  const CURATED_AMOUNTS = [
-    "Obegränsad", "100GB", "50GB", "25GB", "20GB", "15GB", "12GB", "10GB", "5GB",
-  ];
-
-  const availableDataAmounts = useMemo(() => {
-    if (!allPrices) return CURATED_AMOUNTS;
-    const amounts = new Set<string>(CURATED_AMOUNTS);
-    (allPrices.operators as OperatorData[]).forEach((op) => {
-      op.plans.forEach((plan) => {
-        if (plan.dataAmount) amounts.add(plan.dataAmount);
-      });
+      return {
+        group,
+        operator,
+        match,
+        supportsExtra,
+        extraCount,
+        totalPrice,
+      };
     });
-    return [...amounts].sort((a, b) => {
-      if (a === "Obegränsad") return -1;
-      if (b === "Obegränsad") return 1;
-      const numA = parseInt(a.replace(/\D/g, "")) || 0;
-      const numB = parseInt(b.replace(/\D/g, "")) || 0;
-      return numB - numA;
-    });
-  }, [allPrices]);
+  }, [operatorsById, selectedBrands, selectedData, extraPeople]);
+
+  const validTotals = cards
+    .map((card) => card.totalPrice)
+    .filter((price): price is number => typeof price === "number");
+  const cheapestTotal = validTotals.length ? Math.min(...validTotals) : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Wifi className="w-6 h-6 text-blue-600 shrink-0" />
-          <h1 className="text-2xl font-black tracking-tight mr-4">Mobilkollen</h1>
-          <div className="flex-1 overflow-x-auto">
-            <ToggleGroup
-              type="single"
-              value={selectedData}
-              onValueChange={(val) => val && setSelectedData(val)}
-              className="justify-start w-max gap-1"
-            >
-              {availableDataAmounts.map((amount) => (
-                <ToggleGroupItem
-                  key={amount}
-                  value={amount}
-                  className="font-bold text-sm h-9 px-4 rounded-full whitespace-nowrap data-[state=on]:bg-slate-900 data-[state=on]:text-white border border-slate-200 data-[state=on]:border-slate-900"
-                >
-                  {amount}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(241,245,249,1)_55%,_rgba(226,232,240,1))] text-slate-950">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white">
+            <Wifi className="h-5 w-5" />
           </div>
+          <div className="flex-1">
+            <h1 className="text-2xl font-black tracking-tight">Mobilplaner</h1>
+            <p className="text-sm text-slate-500">
+              Originalpriser, snabbt val av data, enkelt extra-person-stöd.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+            />
+            Uppdatera
+          </button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 mt-8 space-y-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-14">
         {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-center gap-2 text-red-700 text-sm font-medium">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            Kunde inte hämta priserna. Försök igen om en stund.
+          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Kunde inte hämta alla priser just nu.
           </div>
         )}
 
-        {/* Subtitle */}
-        <div className="text-center">
-          <h2 className="text-slate-600 text-sm font-medium">
-            Jämför mobilabonnemang för{" "}
-            <span className="font-bold text-slate-900">{selectedData}</span>
-          </h2>
+        <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+              Välj data
+            </p>
+            <h2 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">
+              Jämför mobilabonnemang på sekunder
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Standardvalet är alltid obegränsad surf. För 3 ligger priserna
+              fast, och de andra operatörerna visar sina originalpriser direkt
+              från sajterna.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+            {DATA_CHOICES.map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                onClick={() => setSelectedData(choice)}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                  selectedData === choice
+                    ? "bg-slate-950 text-white shadow"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* 4 operator group columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* TRE */}
-          <OperatorColumn label="TRE" showSingle>
-            <PriceCard
-              data={currentCards[0]}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              isLoading={isLoading}
-              operatorKey="tre"
-              selectedData={selectedData}
-            />
-          </OperatorColumn>
-
-          {/* Telia group */}
-          <OperatorColumn
-            label="Telia"
-            subOptions={[
-              { label: "Telia", value: "telia" },
-              { label: "Fello", value: "fello" },
-            ]}
-            selected={selection.teliaGroup}
-            onSelect={(v) => handleGroupSelection("teliaGroup", v)}
-          >
-            <PriceCard
-              data={currentCards[1]}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              isLoading={isLoading}
-              operatorKey={selection.teliaGroup}
-              selectedData={selectedData}
-            />
-          </OperatorColumn>
-
-          {/* Telenor group */}
-          <OperatorColumn
-            label="Telenor"
-            subOptions={[
-              { label: "Telenor", value: "telenor" },
-              { label: "Vimla", value: "vimla" },
-            ]}
-            selected={selection.telenorGroup}
-            onSelect={(v) => handleGroupSelection("telenorGroup", v)}
-          >
-            <PriceCard
-              data={currentCards[2]}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              isLoading={isLoading}
-              operatorKey={selection.telenorGroup}
-              selectedData={selectedData}
-            />
-          </OperatorColumn>
-
-          {/* Tele2 group */}
-          <OperatorColumn
-            label="Tele2"
-            subOptions={[
-              { label: "Tele2", value: "tele2" },
-              { label: "Comviq", value: "comviq" },
-            ]}
-            selected={selection.tele2Group}
-            onSelect={(v) => handleGroupSelection("tele2Group", v)}
-          >
-            <PriceCard
-              data={currentCards[3]}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              isLoading={isLoading}
-              operatorKey={selection.tele2Group}
-              selectedData={selectedData}
-            />
-          </OperatorColumn>
+        <div className="mt-6 grid gap-4 xl:grid-cols-4">
+          {cards.map(
+            ({
+              group,
+              operator,
+              match,
+              supportsExtra,
+              extraCount,
+              totalPrice,
+            }) => (
+              <OperatorCard
+                key={group.key}
+                group={group}
+                operator={operator}
+                match={match}
+                supportsExtra={supportsExtra}
+                extraCount={extraCount}
+                totalPrice={totalPrice}
+                cheapestTotal={cheapestTotal}
+                loading={isLoading}
+                selectedData={selectedData}
+                onBrandChange={(value) => {
+                  if (group.key !== "tre") {
+                    setSelectedBrands((prev) => ({
+                      ...prev,
+                      [group.key]: value,
+                    }));
+                  }
+                }}
+                onExtraChange={(nextCount) =>
+                  setExtraPeople((prev) => ({
+                    ...prev,
+                    [group.key]: Math.max(0, Math.min(5, nextCount)),
+                  }))
+                }
+              />
+            ),
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex flex-col items-center gap-3 pt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="font-bold gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-            Uppdatera priser
-          </Button>
-          {allPrices && (
-            <p className="text-xs text-slate-400">
+        <div className="mt-6 flex flex-col items-center gap-2 text-center text-xs text-slate-500">
+          <p>
+            3:s priser och extra-person-fee är hårdkodade. Originalpris används
+            för Telia, Fello, Telenor, Vimla, Tele2 och Comviq när sajten visar
+            det.
+          </p>
+          {allPrices?.fetchedAt && (
+            <p>
               Senast uppdaterad:{" "}
               {new Date(allPrices.fetchedAt as string).toLocaleString("sv-SE")}
             </p>
           )}
-          <p className="text-xs text-slate-400 text-center max-w-md">
-            Priser hämtas direkt från operatörernas hemsidor. TRE-priser är hardkodade. Verifiera alltid aktuellt pris på respektive hemsida.
-          </p>
         </div>
       </main>
     </div>
   );
 }
 
-function OperatorColumn({
-  children,
-  label,
-  showSingle,
-  subOptions,
-  selected,
-  onSelect,
+function OperatorCard({
+  group,
+  operator,
+  match,
+  supportsExtra,
+  extraCount,
+  totalPrice,
+  cheapestTotal,
+  loading,
+  selectedData,
+  onBrandChange,
+  onExtraChange,
 }: {
-  children: React.ReactNode;
-  label: string;
-  showSingle?: boolean;
-  subOptions?: { label: string; value: string }[];
-  selected?: string;
-  onSelect?: (v: string) => void;
+  group: (typeof GROUPS)[number];
+  operator: ApiOperator | null;
+  match: MatchedPlan | null;
+  supportsExtra: boolean;
+  extraCount: number;
+  totalPrice: number | null;
+  cheapestTotal: number | null;
+  loading: boolean;
+  selectedData: string;
+  onBrandChange: (value: string) => void;
+  onExtraChange: (nextCount: number) => void;
 }) {
-  return (
-    <div className="flex flex-col gap-3">
-      {showSingle ? (
-        <div className="bg-slate-900 text-white text-center font-black text-sm py-2 px-4 rounded-xl">
-          {label}
+  if (loading) {
+    return (
+      <Card
+        className={`rounded-[28px] border-2 ${group.accent} bg-white p-5 shadow-sm`}
+      >
+        <div className="space-y-3">
+          <Skeleton className="h-9 w-28 rounded-full" />
+          <Skeleton className="h-10 w-full rounded-2xl" />
+          <Skeleton className="h-14 w-32 rounded-2xl" />
+          <Skeleton className="h-4 w-3/4 rounded-full" />
+          <Skeleton className="h-20 w-full rounded-2xl" />
         </div>
-      ) : (
-        <div className="bg-slate-100 rounded-xl p-1 flex gap-1">
-          {subOptions?.map((opt) => (
+      </Card>
+    );
+  }
+
+  const isCheapest =
+    cheapestTotal !== null &&
+    totalPrice !== null &&
+    totalPrice === cheapestTotal;
+  const brandOptions = group.brandOptions;
+  const selectedBrand = operator?.id ?? group.key;
+  const opName = operator?.name ?? group.label;
+  const showBrandToggle = brandOptions.length > 1;
+
+  return (
+    <Card
+      className={`relative overflow-hidden rounded-[28px] border-2 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.08)] ${
+        isCheapest ? "ring-2 ring-emerald-200" : ""
+      } ${group.accent}`}
+    >
+      {isCheapest && (
+        <div className="absolute inset-x-0 top-0 bg-emerald-500 px-3 py-1 text-center text-[10px] font-black uppercase tracking-[0.26em] text-white">
+          Billigast just nu
+        </div>
+      )}
+
+      <div
+        className={`flex items-start justify-between gap-3 ${isCheapest ? "pt-5" : ""}`}
+      >
+        <div>
+          <div className="inline-flex rounded-full bg-slate-950 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-white">
+            {group.label}
+          </div>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Originalpris från sajten
+          </p>
+        </div>
+        <Badge
+          variant="outline"
+          className="border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-600"
+        >
+          {operator?.isLive ? "Hämtad" : "Hårdkodad"}
+        </Badge>
+      </div>
+
+      {showBrandToggle && (
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+          {brandOptions.map((option) => (
             <button
-              key={opt.value}
-              onClick={() => onSelect?.(opt.value)}
-              className={`flex-1 text-sm font-bold py-1.5 rounded-lg transition-all ${
-                selected === opt.value
-                  ? "bg-white shadow-sm text-slate-900"
+              key={option.value}
+              type="button"
+              onClick={() => onBrandChange(option.value)}
+              className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                selectedBrand === option.value
+                  ? "bg-white text-slate-950 shadow"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {opt.label}
+              {option.label}
             </button>
           ))}
         </div>
       )}
-      {children}
-    </div>
-  );
-}
 
-function PriceCard({
-  data,
-  minPrice,
-  maxPrice,
-  isLoading,
-  operatorKey,
-  selectedData,
-}: {
-  data: { operator: OperatorData; match: ReturnType<typeof findBestPlan> } | null;
-  minPrice: number | null;
-  maxPrice: number | null;
-  isLoading: boolean;
-  operatorKey: string;
-  selectedData: string;
-}) {
-  if (isLoading) {
-    return (
-      <Card className="p-6 h-[300px] flex flex-col justify-between border-slate-200 shadow-sm rounded-2xl">
-        <Skeleton className="h-6 w-20 rounded-md" />
-        <div className="space-y-2">
-          <Skeleton className="h-14 w-28 rounded-md" />
-          <Skeleton className="h-4 w-16 rounded-md" />
-        </div>
-        <Skeleton className="h-4 w-full rounded-md" />
-      </Card>
-    );
-  }
-
-  const colorClass = OPERATOR_COLORS[operatorKey] ?? "bg-slate-800 text-white";
-  const opUrl = OPERATOR_URLS[operatorKey] ?? "#";
-  const opName = data?.operator?.name ?? operatorKey.toUpperCase();
-
-  // No plan found at all (scraping failed or no plans)
-  if (!data?.match) {
-    const hasError = data?.operator?.error;
-    return (
-      <Card className="p-6 h-[300px] flex flex-col items-center justify-center border-slate-200 shadow-sm rounded-2xl bg-white text-center text-slate-400 gap-3">
-        <div className={`px-3 py-1 rounded-lg text-xs font-black uppercase ${colorClass}`}>
-          {opName}
-        </div>
-        <p className="font-semibold text-slate-500 text-sm">
-          {hasError ? "Kunde ej hämta" : "Plan saknas"}
+      <div className="mt-5 space-y-1">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+          Månadskostnad
         </p>
-        <a
-          href={opUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
-        >
-          Besök hemsidan <ExternalLink className="w-3 h-3" />
-        </a>
-      </Card>
-    );
-  }
-
-  const { operator, match } = data;
-  const { plan, isExact, closestLabel } = match;
-
-  const isCheapest = minPrice !== null && plan.price === minPrice && minPrice !== maxPrice;
-  const savings = maxPrice !== null && plan.price !== maxPrice ? maxPrice - plan.price : 0;
-
-  return (
-    <Card
-      className={`relative p-6 h-[300px] flex flex-col justify-between border shadow-sm rounded-2xl bg-white overflow-hidden transition-all duration-300 ${
-        isCheapest
-          ? "border-emerald-400 ring-2 ring-emerald-200"
-          : "border-slate-200"
-      }`}
-    >
-      {isCheapest && (
-        <div className="absolute top-0 left-0 right-0 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider text-center py-1">
-          Billigaste just nu
-        </div>
-      )}
-
-      <div className={`flex justify-between items-start ${isCheapest ? "mt-5" : ""}`}>
-        <div className={`px-3 py-1 rounded-lg text-sm font-black uppercase ${colorClass}`}>
-          {operator.name}
-        </div>
-        {operator.isLive ? (
-          <Badge
-            variant="outline"
-            className="text-[10px] text-emerald-600 bg-emerald-50 border-emerald-200 font-bold uppercase tracking-wider"
-          >
-            Live
-          </Badge>
-        ) : (
-          <Badge
-            variant="outline"
-            className="text-[10px] text-slate-500 bg-slate-50 border-slate-200 font-bold uppercase tracking-wider"
-          >
-            Fast pris
-          </Badge>
-        )}
-      </div>
-
-      <div className="py-2">
-        <div className="flex items-baseline gap-1">
-          <span className="text-5xl font-black tracking-tighter text-slate-900">
-            {plan.price}
+        <div className="flex items-end gap-2">
+          <span className="text-5xl font-black tracking-tight text-slate-950">
+            {totalPrice !== null ? formatPrice(totalPrice) : "0"}
           </span>
-          <span className="text-lg font-bold text-slate-500">kr/mån</span>
+          <span className="pb-1 text-lg font-bold text-slate-500">kr/mån</span>
         </div>
-        {!isExact && closestLabel && (
-          <p className="text-xs text-amber-600 font-semibold mt-1 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3 shrink-0" />
-            Närmaste plan: {closestLabel}
+        {match ? (
+          <p className="text-sm text-slate-600">
+            {match.isExact
+              ? "Exakt match"
+              : `Närmaste plan: ${match.closestLabel}`}
           </p>
-        )}
-        {plan.originalPrice && plan.originalPrice > plan.price && (
-          <p className="text-sm text-slate-400 line-through font-medium mt-1">
-            Ord. {plan.originalPrice} kr/mån
+        ) : (
+          <p className="text-sm text-slate-600">
+            Ingen prisdata hittades för den här operatören.
           </p>
         )}
       </div>
 
-      <div className="border-t border-slate-100 pt-3 space-y-2">
-        {isCheapest ? (
-          <p className="text-sm font-bold text-emerald-600">
-            Billigaste alternativet!
-            {savings > 0 && ` Spara ${savings} kr/mån`}
+      <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+              Vald plan
+            </p>
+            <p className="mt-1 text-lg font-black text-slate-950">
+              {match?.plan.dataAmount ?? "Inget"}
+            </p>
+          </div>
+          {match?.plan.isUnlimited ? (
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-700">
+              Obegränsad
+            </span>
+          ) : null}
+        </div>
+
+        {match?.plan && (
+          <div className="mt-3 space-y-1 text-sm text-slate-600">
+            <p>Baspris: {formatPrice(match.plan.price)} kr/mån</p>
+            {match.plan.originalPrice ? (
+              <p>
+                Ordinarie pris: {formatPrice(match.plan.originalPrice)} kr/mån
+              </p>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      {supportsExtra && operator?.extraUserPrice ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+                Extra personer
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {formatPrice(operator.extraUserPrice)} kr per extra person
+                {operator.extraUserOnlyUnlimited ? " på obegränsat" : ""}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => onExtraChange(extraCount - 1)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition hover:text-slate-950"
+              >
+                -
+              </button>
+              <span className="min-w-8 text-center text-sm font-black text-slate-950">
+                {extraCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => onExtraChange(extraCount + 1)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition hover:text-slate-950"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Lägg till personer utan att lämna prisjämförelsen.
           </p>
-        ) : savings > 0 ? (
-          <p className="text-sm font-semibold text-slate-500">
-            {savings} kr/mån dyrare än billigaste
+        </div>
+      ) : operator?.id === "fello" || operator?.id === "vimla" ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+            Familjeabonnemang
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Inget familjeabonnemang — varje person behöver eget abonnemang.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4 text-sm">
+        <div>
+          <p className="font-bold text-slate-700">{opName}</p>
+          <p className="text-xs text-slate-500">{operator?.error ?? "Redo"}</p>
+        </div>
+        {totalPrice !== null &&
+        cheapestTotal !== null &&
+        totalPrice !== cheapestTotal ? (
+          <p className="text-xs font-semibold text-slate-500">
+            {formatPrice(totalPrice - cheapestTotal)} kr dyrare
           </p>
         ) : (
-          <p className="text-sm text-slate-400 font-medium">Dyraste alternativet</p>
+          <p className="text-xs font-semibold text-emerald-600">
+            Bästa priset just nu
+          </p>
         )}
-        <a
-          href={opUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
-        >
-          Verifiera på {operator.name} <ExternalLink className="w-3 h-3" />
-        </a>
       </div>
+
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        {selectedData === "Obegränsad"
+          ? "Standardvalet visar obegränsad surf och faller tillbaka till närmaste plan om en operatör saknar det."
+          : `Visar närmaste plan för ${selectedData}.`}
+      </p>
     </Card>
   );
 }
