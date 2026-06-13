@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { getAllOperators, type OperatorPrices, type PlanPrice } from "@/lib/operators";
+import { getAllOperators, type OperatorPrices, type PlanPrice } from "../lib/operators";
 
 interface ApiOperator {
   id: string;
