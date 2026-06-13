@@ -107,8 +107,9 @@ export function fetchTelia(): OperatorPrices {
   base.extraUserPrice = 239;
   base.extraUserOnlyUnlimited = false;
   base.plans = [
-    makePlan("Telia", "15GB", 329),
-    makePlan("Telia", "Obegränsad", 479),
+    makePlan("Telia", "10GB", 299),
+    makePlan("Telia", "20GB", 399),
+    makePlan("Telia", "Obegränsad", 499),
   ];
   return base;
 }
