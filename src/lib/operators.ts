@@ -97,6 +97,7 @@ export function fetchTele2(): OperatorPrices {
   base.plans = [
     makePlan("Tele2", "10GB", 299),
     makePlan("Tele2", "Obegränsad", 499),
+    makePlan("Tele2", "Obegränsad Max", 519),
   ];
   return base;
 }
