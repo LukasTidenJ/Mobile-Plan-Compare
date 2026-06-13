@@ -276,43 +276,26 @@ export default function Home() {
   );
 }
 
-function OperatorCard({
-  group,
-  operator,
-  match,
-  supportsExtra,
-  extraCount,
-  totalPrice,
-  cheapestTotal,
-  selectedData,
-  onBrandChange,
-  onExtraChange,
-  onDataChange,
-  selectedBroadband,
-  onBroadbandChange,
-  isActivated,
-  onActivate,
-  priceDiff,
-  showComparison,
-}: {
-  group: (typeof GROUPS)[number];
-  operator: ApiOperator | null;
-  match: MatchedPlan | null;
-  supportsExtra: boolean;
-  extraCount: number;
-  totalPrice: number | null;
-  cheapestTotal: number | null;
-  selectedData: string;
-  onBrandChange: (value: string) => void;
-  onExtraChange: (nextCount: number) => void;
-  onDataChange: (value: string) => void;
-  selectedBroadband: string;
-  onBroadbandChange: (value: string) => void;
-  isActivated: boolean;
-  onActivate: (activated: boolean) => void;
-  priceDiff: number | null;
-  showComparison: boolean;
-}) {
+function OperatorCard(props: any) {
+  const {
+    group,
+    operator,
+    match,
+    supportsExtra,
+    extraCount,
+    totalPrice,
+    cheapestTotal,
+    selectedData,
+    onBrandChange,
+    onExtraChange,
+    onDataChange,
+    selectedBroadband,
+    onBroadbandChange,
+    isActivated,
+    onActivate,
+    priceDiff,
+    showComparison,
+  } = props;
   const isCheapest =
     cheapestTotal !== null &&
     totalPrice !== null &&
