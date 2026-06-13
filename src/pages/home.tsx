@@ -132,6 +132,7 @@ export default function Home() {
     tele2: 0,
   });
   const [selectedBroadband, setSelectedBroadband] = useState<string>("none");
+  const [comparisonCard, setComparisonCard] = useState<GroupKey | null>(null);
 
   const operators = getAllOperators() as ApiOperator[];
   const isLoading = false;
@@ -251,10 +252,64 @@ export default function Home() {
                     [group.key]: Math.max(0, Math.min(5, nextCount)),
                   }))
                 }
+                comparisonCard={comparisonCard}
+                onComparisonSelect={setComparisonCard}
               />
             ),
           )}
         </div>
+
+        {comparisonCard && (() => {
+          const treCard = cards.find(c => c.group.key === "tre");
+          const compareCard = cards.find(c => c.group.key === comparisonCard);
+          if (!treCard || !compareCard || treCard.totalPrice === null || compareCard.totalPrice === null) return null;
+
+          const diff = treCard.totalPrice - compareCard.totalPrice;
+          const isTreCheaper = diff < 0;
+
+          return (
+            <div style={{
+              marginTop: '32px',
+              padding: '24px',
+              background: '#f9fafb',
+              borderRadius: '12px',
+              border: '1px solid #e5e7eb'
+            }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '16px' }}>
+                Jämförelse: 3 vs {compareCard.operator?.name || compareCard.group.label}
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ padding: '16px', background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '8px' }}>3</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
+                    {formatPrice(treCard.totalPrice)} kr
+                  </div>
+                </div>
+                <div style={{ padding: '16px', background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '8px' }}>{compareCard.operator?.name || compareCard.group.label}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
+                    {formatPrice(compareCard.totalPrice)} kr
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                marginTop: '16px',
+                padding: '16px',
+                background: isTreCheaper ? '#d1fae5' : '#fee2e2',
+                borderRadius: '8px',
+                textAlign: 'center',
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: isTreCheaper ? '#065f46' : '#991b1b'
+              }}>
+                {isTreCheaper
+                  ? `Sparar ${formatPrice(Math.abs(diff))} kr med 3`
+                  : `Betalar ${formatPrice(Math.abs(diff))} kr mer än 3`
+                }
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="footer">
           <p>Alla priser är uppdaterade manuellt baserat på operatörernas officiella prislistor.</p>
@@ -278,6 +333,8 @@ function OperatorCard({
   onDataChange,
   selectedBroadband,
   onBroadbandChange,
+  comparisonCard,
+  onComparisonSelect,
 }: {
   group: (typeof GROUPS)[number];
   operator: ApiOperator | null;
@@ -292,6 +349,8 @@ function OperatorCard({
   onDataChange: (value: string) => void;
   selectedBroadband: string;
   onBroadbandChange: (value: string) => void;
+  comparisonCard: GroupKey | null;
+  onComparisonSelect: (key: GroupKey | null) => void;
 }) {
   const isCheapest =
     cheapestTotal !== null &&
@@ -410,10 +469,8 @@ function OperatorCard({
 
       <div className="card-footer">
         <div className="operator-name">{opName}</div>
-        {group.key === "tre" && totalPrice !== null && cheapestTotal !== null && totalPrice > cheapestTotal ? (
-          <div className="savings worse">
-            Sparar {formatPrice(totalPrice - cheapestTotal)} kr med 3
-          </div>
+        {group.key === "tre" ? (
+          <div className="savings best">Jämförelsbas</div>
         ) : totalPrice !== null &&
         cheapestTotal !== null &&
         totalPrice !== cheapestTotal ? (
@@ -422,6 +479,26 @@ function OperatorCard({
           </div>
         ) : (
           <div className="savings best">Bästa pris</div>
+        )}
+        {group.key !== "tre" && (
+          <button
+            type="button"
+            onClick={() => onComparisonSelect(comparisonCard === group.key ? null : group.key)}
+            className={`compare-btn ${comparisonCard === group.key ? 'selected' : ''}`}
+            style={{
+              marginTop: '8px',
+              padding: '6px 12px',
+              fontSize: '0.75rem',
+              background: comparisonCard === group.key ? '#3b82f6' : '#e5e7eb',
+              color: comparisonCard === group.key ? '#fff' : '#374151',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+          >
+            {comparisonCard === group.key ? 'Vald' : 'Välj'}
+          </button>
         )}
       </div>
     </div>
