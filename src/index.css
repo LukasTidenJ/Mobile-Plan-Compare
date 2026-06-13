@@ -1,0 +1,299 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  padding: 30px 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.header p {
+  color: #888;
+  font-size: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.card {
+  background: #16213e;
+  border: 2px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+.card.tre {
+  border-color: #3b82f6;
+}
+
+.card.telia {
+  border-color: #ef4444;
+}
+
+.card.tele2 {
+  border-color: #f97316;
+}
+
+.card.telenor {
+  border-color: #06b6d4;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.badge {
+  background: #333;
+  color: #888;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.brand-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.brand-btn {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  color: #888;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.brand-btn:hover {
+  background: #252540;
+  color: #fff;
+}
+
+.brand-btn.active {
+  background: #fff;
+  color: #1a1a2e;
+  border-color: #fff;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.form-select, .form-input {
+  width: 100%;
+  padding: 12px;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.form-select:focus, .form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.price-display {
+  margin: 20px 0;
+}
+
+.price-large {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.price-unit {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #888;
+  margin-left: 8px;
+}
+
+.plan-info {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.plan-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.plan-details {
+  font-size: 0.875rem;
+  color: #888;
+}
+
+.extra-users {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.extra-users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.extra-users-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.extra-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  color: #1a1a2e;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.extra-btn:hover {
+  transform: scale(1.1);
+}
+
+.extra-count {
+  min-width: 32px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #333;
+  margin-top: 16px;
+}
+
+.operator-name {
+  font-weight: 700;
+  color: #fff;
+}
+
+.savings {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.savings.best {
+  color: #10b981;
+}
+
+.savings.worse {
+  color: #888;
+}
+
+.data-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 30px;
+}
+
+.data-btn {
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: 1px solid #333;
+  background: #1a1a2e;
+  color: #888;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.data-btn:hover {
+  background: #252540;
+  color: #fff;
+}
+
+.data-btn.active {
+  background: #fff;
+  color: #1a1a2e;
+  border-color: #fff;
+}
+
+.footer {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-size: 0.875rem;
+}
