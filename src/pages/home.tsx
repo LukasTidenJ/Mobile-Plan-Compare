@@ -122,10 +122,10 @@ function formatPrice(price: number) {
 
 export default function Home() {
   const [selectedData, setSelectedData] = useState<Record<GroupKey, string>>({
-    tre: "Obegränsad",
-    telia: "Obegränsad",
-    telenor: "Obegränsad",
-    tele2: "Obegränsad",
+    tre: "",
+    telia: "",
+    telenor: "",
+    tele2: "",
   });
   const [selectedBrands, setSelectedBrands] = useState<
     Record<Exclude<GroupKey, "tre">, string>
@@ -219,6 +219,29 @@ export default function Home() {
         >
           Se täckningskarta
         </a>
+        {otherActiveCards.length > 0 && treCard?.totalPrice !== null && (() => {
+          const compareCard = otherActiveCards[0];
+          if (!compareCard || compareCard.totalPrice === null) return null;
+          const diff = treCard.totalPrice - compareCard.totalPrice;
+          const isTreCheaper = diff < 0;
+          return (
+            <div style={{
+              marginTop: '16px',
+              padding: '16px 24px',
+              background: isTreCheaper ? '#d1fae5' : '#fee2e2',
+              borderRadius: '8px',
+              textAlign: 'center',
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: isTreCheaper ? '#065f46' : '#991b1b'
+            }}>
+              {isTreCheaper
+                ? `${formatPrice(Math.abs(diff))} billigare än 3`
+                : `Betalar ${formatPrice(Math.abs(diff))} kr mindre än 3`
+              }
+            </div>
+          );
+        })()}
       </header>
 
       <main>
@@ -432,22 +455,7 @@ function OperatorCard({
 
       <div className="card-footer">
         <div className="operator-name">{opName}</div>
-        {group.key === "tre" && otherActiveCards.length > 0 && treCard?.totalPrice !== null ? (
-          (() => {
-            const compareCard = otherActiveCards[0];
-            if (!compareCard || compareCard.totalPrice === null) return null;
-            const diff = treCard.totalPrice - compareCard.totalPrice;
-            const isTreCheaper = diff < 0;
-            return (
-              <div className={`savings ${isTreCheaper ? 'best' : 'worse'}`}>
-                {isTreCheaper
-                  ? `${formatPrice(Math.abs(diff))} billigare än 3`
-                  : `Betalar ${formatPrice(Math.abs(diff))} kr mindre än 3`
-                }
-              </div>
-            );
-          })()
-        ) : selectedData ? (
+        {selectedData ? (
           totalPrice !== null ? (
             <div className="savings best">{formatPrice(totalPrice)} kr/mån</div>
           ) : (
