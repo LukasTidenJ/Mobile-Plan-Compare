@@ -359,7 +359,12 @@ function OperatorCard({
   return (
     <div className={`card ${group.key}`}>
       <div className="card-header">
-        <h3 className="card-title">{group.label}</h3>
+        <img
+          src={`/logo-${group.key}.svg`}
+          alt={group.label}
+          style={{ width: '40px', height: '40px', marginRight: '12px' }}
+        />
+        <h3 className="card-title">{opName}</h3>
       </div>
 
       <div className="data-selector" style={{marginBottom: '16px'}}>
