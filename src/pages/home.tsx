@@ -265,10 +265,18 @@ export default function Home() {
                   }
                 }}
                 onDataChange={(value) => {
-                  setSelectedData((prev) => ({
-                    ...prev,
-                    [card.group.key]: value,
-                  }));
+                  setSelectedData((prev) => {
+                    if (prev[card.group.key] === value) {
+                      return {
+                        ...prev,
+                        [card.group.key]: "",
+                      };
+                    }
+                    return {
+                      ...prev,
+                      [card.group.key]: value,
+                    };
+                  });
                 }}
                 selectedBroadband={selectedBroadband}
                 onBroadbandChange={setSelectedBroadband}
