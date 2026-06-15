@@ -6,8 +6,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #eee;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f1f5f9;
   min-height: 100vh;
 }
 
@@ -44,17 +44,18 @@ body {
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.95);
-  border: none;
-  border-radius: 16px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
   padding: 24px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  border-color: rgba(148, 163, 184, 0.3);
 }
 
 .card.tre {
@@ -83,7 +84,7 @@ body {
 .card-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #f1f5f9;
 }
 
 .badge {
@@ -104,9 +105,9 @@ body {
 }
 
 .brand-btn {
-  background: #f3f4f6;
-  border: 2px solid #e5e7eb;
-  color: #374151;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #94a3b8;
   padding: 10px;
   border-radius: 8px;
   cursor: pointer;
@@ -115,14 +116,15 @@ body {
 }
 
 .brand-btn:hover {
-  background: #e5e7eb;
-  border-color: #d1d5db;
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #f1f5f9;
 }
 
 .brand-btn.active {
-  background: #667eea;
+  background: #3b82f6;
   color: #fff;
-  border-color: #667eea;
+  border-color: #3b82f6;
 }
 
 .form-group {
@@ -135,17 +137,17 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #888;
+  color: #94a3b8;
   margin-bottom: 8px;
 }
 
 .form-select, .form-input {
   width: 100%;
   padding: 12px;
-  background: #1a1a2e;
-  border: 1px solid #333;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 8px;
-  color: #fff;
+  color: #f1f5f9;
   font-size: 1rem;
   cursor: pointer;
 }
@@ -162,19 +164,19 @@ body {
 .price-large {
   font-size: 3rem;
   font-weight: 800;
-  color: #1a1a2e;
+  color: #f1f5f9;
 }
 
 .price-unit {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #6b7280;
+  color: #94a3b8;
   margin-left: 8px;
 }
 
 .plan-info {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
@@ -183,18 +185,18 @@ body {
 .plan-name {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #f1f5f9;
   margin-bottom: 8px;
 }
 
 .plan-details {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: #94a3b8;
 }
 
 .extra-users {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 8px;
   padding: 16px;
 }
@@ -216,7 +218,7 @@ body {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #667eea;
+  background: #3b82f6;
   border: none;
   color: #fff;
   font-size: 1.25rem;
@@ -226,7 +228,7 @@ body {
 }
 
 .extra-btn:hover {
-  background: #5568d3;
+  background: #2563eb;
   transform: scale(1.1);
 }
 
@@ -235,7 +237,7 @@ body {
   text-align: center;
   font-size: 1rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: #f1f5f9;
 }
 
 .card-footer {
@@ -243,13 +245,13 @@ body {
   justify-content: space-between;
   align-items: center;
   padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
   margin-top: 16px;
 }
 
 .operator-name {
   font-weight: 700;
-  color: #1a1a2e;
+  color: #f1f5f9;
 }
 
 .savings {
@@ -275,23 +277,24 @@ body {
 .data-btn {
   padding: 10px 20px;
   border-radius: 20px;
-  border: 2px solid #e5e7eb;
-  background: #f3f4f6;
-  color: #374151;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.5);
+  color: #94a3b8;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .data-btn:hover {
-  background: #e5e7eb;
-  border-color: #d1d5db;
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #f1f5f9;
 }
 
 .data-btn.active {
-  background: #667eea;
+  background: #3b82f6;
   color: #fff;
-  border-color: #667eea;
+  border-color: #3b82f6;
 }
 
 .footer {
