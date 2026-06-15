@@ -318,6 +318,7 @@ export default function Home() {
 
         <div className="footer">
           <p>Alla priser är uppdaterade manuellt baserat på operatörernas officiella prislistor.</p>
+          <p style={{marginTop: '8px'}}>Gjord med kärlek av er kära kollega Lukas Tidén Jonsson</p>
         </div>
       </main>
     </div>
