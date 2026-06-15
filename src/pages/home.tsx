@@ -362,7 +362,7 @@ function OperatorCard({
     <div className={`card ${group.key}`}>
       <div className="card-header">
         <img
-          src={`/logo-${group.key}.png`}
+          src={group.key === 'tele2' ? '/logo-tele2.svg' : `/logo-${group.key}.png`}
           alt={group.label}
           style={{ width: '40px', height: '40px', marginRight: '12px' }}
         />
@@ -399,10 +399,16 @@ function OperatorCard({
       )}
 
       <div className="price-display">
-        <span className="price-large">
-          {totalPrice !== null ? formatPrice(totalPrice) : "0"}
-        </span>
-        <span className="price-unit">kr/mån</span>
+        {selectedData ? (
+          <>
+            <span className="price-large">
+              {totalPrice !== null ? formatPrice(totalPrice) : "0"}
+            </span>
+            <span className="price-unit">kr/mån</span>
+          </>
+        ) : (
+          <span className="price-large">Välj plan</span>
+        )}
       </div>
 
       <div className="plan-info">
