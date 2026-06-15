@@ -120,6 +120,16 @@ function formatPrice(price: number) {
   return new Intl.NumberFormat("sv-SE").format(price);
 }
 
+const operatorUrls: Record<string, string> = {
+  tre: "https://www.tre.se/handla/mobilabonnemang",
+  telia: "https://www.telia.se/mobilabonnemang",
+  fello: "https://www.fello.se/mobilabonnemang/",
+  telenor: "https://www.telenor.se/handla/mobilabonnemang/",
+  vimla: "https://vimla.se/bestall/",
+  tele2: "https://www.tele2.se/mobilabonnemang",
+  comviq: "https://www.comviq.se/mobilabonnemang",
+};
+
 export default function Home() {
   const [selectedData, setSelectedData] = useState<Record<GroupKey, string>>({
     tre: "",
@@ -367,7 +377,24 @@ function OperatorCard({
           alt={group.label}
           style={{ width: '40px', height: '40px', marginRight: '12px' }}
         />
-        <h3 className="card-title">{opName}</h3>
+        <div style={{flex: 1}}>
+          <h3 className="card-title">{opName}</h3>
+          {operatorUrls[operator?.id || group.key] && (
+            <a
+              href={operatorUrls[operator?.id || group.key]}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '0.75rem',
+                color: '#667eea',
+                textDecoration: 'none',
+                fontWeight: '500'
+              }}
+            >
+              Hemsida
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="data-selector" style={{marginBottom: '16px'}}>
@@ -412,14 +439,6 @@ function OperatorCard({
         )}
       </div>
 
-      <div className="plan-info">
-        <div className="plan-name">
-          {match?.plan.dataAmount ?? "Inget"}
-          {match?.plan.isUnlimited && (
-            <span className="badge" style={{marginLeft: '8px'}}>Obegränsad</span>
-          )}
-        </div>
-      </div>
 
       {group.key === "tre" && (
         <div className="plan-info">

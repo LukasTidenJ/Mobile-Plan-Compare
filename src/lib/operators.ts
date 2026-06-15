@@ -139,7 +139,7 @@ export function fetchTelenor(): OperatorPrices {
     makePlan("Telenor", "10GB", 299),
     makePlan("Telenor", "25GB", 399),
     makePlan("Telenor", "Obegränsad", 499),
-    makePlan("Telenor", "Obegränsad Plus", 629),
+    makePlan("Telenor", "Obegränsad Plus", 529),
   ];
   return base;
 }
