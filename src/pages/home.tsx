@@ -224,6 +224,7 @@ export default function Home() {
           if (!compareCard || compareCard.totalPrice === null) return null;
           const diff = treCard.totalPrice - compareCard.totalPrice;
           const isTreCheaper = diff < 0;
+          const compareOperatorName = compareCard.operator?.name || compareCard.group.label;
           return (
             <div style={{
               marginTop: '16px',
@@ -236,8 +237,8 @@ export default function Home() {
               color: isTreCheaper ? '#065f46' : '#991b1b'
             }}>
               {isTreCheaper
-                ? `${formatPrice(Math.abs(diff))} billigare än 3`
-                : `Betalar ${formatPrice(Math.abs(diff))} kr mindre än 3`
+                ? `3 är ${formatPrice(Math.abs(diff))} kr billigare än ${compareOperatorName}`
+                : `3 är ${formatPrice(Math.abs(diff))} kr dyrare än ${compareOperatorName}`
               }
             </div>
           );
@@ -360,7 +361,7 @@ function OperatorCard({
     <div className={`card ${group.key}`}>
       <div className="card-header">
         <img
-          src={`/logo-${group.key}.svg`}
+          src={`/logo-${group.key}.png`}
           alt={group.label}
           style={{ width: '40px', height: '40px', marginRight: '12px' }}
         />
