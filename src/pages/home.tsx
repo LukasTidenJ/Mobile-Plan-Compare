@@ -225,6 +225,7 @@ export default function Home() {
           const diff = treCard.totalPrice - compareCard.totalPrice;
           const isTreCheaper = diff < 0;
           const compareOperatorName = compareCard.operator?.name || compareCard.group.label;
+          const treDataPlan = selectedData.tre || "obegränsad";
           return (
             <div style={{
               marginTop: '16px',
@@ -237,8 +238,8 @@ export default function Home() {
               color: isTreCheaper ? '#065f46' : '#991b1b'
             }}>
               {isTreCheaper
-                ? `3 är ${formatPrice(Math.abs(diff))} kr billigare än ${compareOperatorName}`
-                : `3 är ${formatPrice(Math.abs(diff))} kr dyrare än ${compareOperatorName}`
+                ? `3 är ${formatPrice(Math.abs(diff))} kr billigare än ${compareOperatorName} och har ${treDataPlan} med surf`
+                : `3 är ${formatPrice(Math.abs(diff))} kr dyrare än ${compareOperatorName} och har ${treDataPlan} med surf`
               }
             </div>
           );
