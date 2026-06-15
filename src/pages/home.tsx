@@ -169,10 +169,11 @@ export default function Home() {
       );
       const extraCount = supportsExtra ? extraPeople[group.key] : 0;
       const basePrice = match?.plan.price ?? null;
+      const broadbandPrice = selectedBroadband !== "none" ? 299 : 0;
       const totalPrice =
         basePrice !== null && operator?.extraUserPrice != null
-          ? basePrice + extraCount * operator.extraUserPrice
-          : basePrice;
+          ? basePrice + extraCount * operator.extraUserPrice + broadbandPrice
+          : basePrice !== null ? basePrice + broadbandPrice : null;
 
       return {
         group,
@@ -183,7 +184,7 @@ export default function Home() {
         totalPrice,
       };
     });
-  }, [operatorsById, selectedBrands, selectedData, extraPeople]);
+  }, [operatorsById, selectedBrands, selectedData, extraPeople, selectedBroadband]);
 
   const validTotals = cards
     .map((card) => card.totalPrice)
@@ -417,9 +418,6 @@ function OperatorCard({
           {match?.plan.isUnlimited && (
             <span className="badge" style={{marginLeft: '8px'}}>Obegränsad</span>
           )}
-        </div>
-        <div className="plan-details">
-          Baspris: {match?.plan.price ? formatPrice(match.plan.price) : "0"} kr/mån
         </div>
       </div>
 
