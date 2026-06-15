@@ -67,7 +67,7 @@ function makeBaseOperator(
 export function fetchTre(): OperatorPrices {
   const base = makeBaseOperator("tre", "TRE", null, false);
   base.extraUserPrice = 129;
-  base.extraUserOnlyUnlimited = true;
+  base.extraUserOnlyUnlimited = false;
   base.plans = [
     makePlan("TRE", "Obegränsad", 299),
     makePlan("TRE", "50GB", 249),
