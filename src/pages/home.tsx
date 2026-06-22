@@ -137,15 +137,15 @@ export default function Home() {
 
   useEffect(() => {
     // Firebase Realtime Database for live user tracking
-    // NOTE: Replace these with your actual Firebase config
     const firebaseConfig = {
-      apiKey: process.env.VITE_FIREBASE_API_KEY || "YOUR_FIREBASE_API_KEY",
-      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "mobilplaner.firebaseapp.com",
-      databaseURL: process.env.VITE_FIREBASE_DATABASE_URL || "https://mobilplaner-default-rtdb.firebaseio.com",
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID || "mobilplaner",
-      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "mobilplaner.appspot.com",
-      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
-      appId: process.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
+      apiKey: "AIzaSyDPDQJX_OpFrZzCrzWBoSRl-6zwqZAIYUU",
+      authDomain: "mobilplanerare.firebaseapp.com",
+      databaseURL: "https://mobilplanerare-default-rtdb.firebaseio.com",
+      projectId: "mobilplanerare",
+      storageBucket: "mobilplanerare.firebasestorage.app",
+      messagingSenderId: "229001665649",
+      appId: "1:229001665649:web:895318e0f4a1abbc800fd0",
+      measurementId: "G-WK4T11PTBH"
     };
 
     try {
