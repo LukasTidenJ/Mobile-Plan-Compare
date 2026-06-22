@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, onValue, onDisconnect, set, serverTimestamp } from "firebase/database";
 import { getAllOperators, type OperatorPrices, type PlanPrice } from "../lib/operators";
 
 interface ApiOperator {
@@ -135,28 +137,60 @@ export default function Home() {
 
   useEffect(() => {
     // Firebase Realtime Database for live user tracking
-    // Note: You need to add your Firebase config here
+    // NOTE: Replace these with your actual Firebase config
     const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "mobilplaner.firebaseapp.com",
-      databaseURL: "https://mobilplaner-default-rtdb.firebaseio.com",
-      projectId: "mobilplaner",
-      storageBucket: "mobilplaner.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
+      apiKey: process.env.VITE_FIREBASE_API_KEY || "YOUR_FIREBASE_API_KEY",
+      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "mobilplaner.firebaseapp.com",
+      databaseURL: process.env.VITE_FIREBASE_DATABASE_URL || "https://mobilplaner-default-rtdb.firebaseio.com",
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID || "mobilplaner",
+      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "mobilplaner.appspot.com",
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
+      appId: process.env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
     };
 
-    // For now, using a simple simulated counter
-    // Replace this with Firebase integration when you have the config
-    const interval = setInterval(() => {
-      setLiveUsers(prev => {
-        const change = Math.floor(Math.random() * 5) - 2;
-        const newValue = Math.max(1, prev + change);
-        return newValue;
-      });
-    }, 5000);
+    try {
+      const app = initializeApp(firebaseConfig);
+      const database = getDatabase(app);
+      const userRef = ref(database, 'presence/' + Date.now());
+      const connectedRef = ref(database, '.info/connected');
+      const usersRef = ref(database, 'users');
 
-    return () => clearInterval(interval);
+      // Set user as online
+      set(userRef, true);
+
+      // Remove user when disconnected
+      onDisconnect(userRef).remove();
+
+      // Listen for connection status
+      onValue(connectedRef, (snapshot) => {
+        if (snapshot.val() === true) {
+          set(userRef, true);
+          onDisconnect(userRef).remove();
+        }
+      });
+
+      // Listen for user count
+      onValue(usersRef, (snapshot) => {
+        const users = snapshot.val();
+        setLiveUsers(users ? Object.keys(users).length : 0);
+      });
+
+      return () => {
+        set(userRef, false);
+      };
+    } catch (error) {
+      console.error('Firebase initialization error:', error);
+      // Fallback to simulated counter if Firebase fails
+      const interval = setInterval(() => {
+        setLiveUsers(prev => {
+          const change = Math.floor(Math.random() * 5) - 2;
+          const newValue = Math.max(1, prev + change);
+          return newValue;
+        });
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
   }, []);
 
   const [selectedData, setSelectedData] = useState<Record<GroupKey, string>>({
