@@ -131,9 +131,23 @@ const operatorUrls: Record<string, string> = {
 };
 
 export default function Home() {
-  const [liveUsers, setLiveUsers] = useState(Math.floor(Math.random() * 20) + 5);
+  const [liveUsers, setLiveUsers] = useState(0);
 
   useEffect(() => {
+    // Firebase Realtime Database for live user tracking
+    // Note: You need to add your Firebase config here
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "mobilplaner.firebaseapp.com",
+      databaseURL: "https://mobilplaner-default-rtdb.firebaseio.com",
+      projectId: "mobilplaner",
+      storageBucket: "mobilplaner.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // For now, using a simple simulated counter
+    // Replace this with Firebase integration when you have the config
     const interval = setInterval(() => {
       setLiveUsers(prev => {
         const change = Math.floor(Math.random() * 5) - 2;
@@ -224,17 +238,6 @@ export default function Home() {
       <header className="header">
         <h1>Mobilplaner</h1>
         <p>Jämför mobilabonnemang</p>
-        <div style={{
-          marginTop: '12px',
-          padding: '8px 16px',
-          background: 'rgba(59, 130, 246, 0.2)',
-          borderRadius: '20px',
-          display: 'inline-block',
-          fontSize: '0.875rem',
-          color: '#94a3b8'
-        }}>
-          <span style={{color: '#60a5fa'}}>●</span> {liveUsers} användare online just nu
-        </div>
         <a
           href="https://www.tre.se/varfor-tre/tackning/tackningskarta"
           target="_blank"
@@ -346,6 +349,32 @@ export default function Home() {
           <p style={{marginTop: '8px'}}>Gjord med kärlek av er kära kollega Lukas Tidén Jonsson</p>
         </div>
       </main>
+
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        padding: '12px 20px',
+        background: 'rgba(15, 23, 42, 0.9)',
+        border: '1px solid rgba(148, 163, 184, 0.3)',
+        borderRadius: '30px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '0.875rem',
+        color: '#94a3b8',
+        backdropFilter: 'blur(10px)',
+        zIndex: 1000
+      }}>
+        <span style={{
+          width: '8px',
+          height: '8px',
+          background: '#22c55e',
+          borderRadius: '50%',
+          animation: 'pulse 2s infinite'
+        }}></span>
+        {liveUsers} online
+      </div>
     </div>
   );
 }
