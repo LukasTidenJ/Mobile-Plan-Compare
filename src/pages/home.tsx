@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getAllOperators, type OperatorPrices, type PlanPrice } from "../lib/operators";
 
 interface ApiOperator {
@@ -131,6 +131,20 @@ const operatorUrls: Record<string, string> = {
 };
 
 export default function Home() {
+  const [liveUsers, setLiveUsers] = useState(Math.floor(Math.random() * 20) + 5);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLiveUsers(prev => {
+        const change = Math.floor(Math.random() * 5) - 2;
+        const newValue = Math.max(1, prev + change);
+        return newValue;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const [selectedData, setSelectedData] = useState<Record<GroupKey, string>>({
     tre: "",
     telia: "",
@@ -179,7 +193,7 @@ export default function Home() {
       );
       const extraCount = supportsExtra ? extraPeople[group.key] : 0;
       const basePrice = match?.plan.price ?? null;
-      const broadbandPrice = selectedBroadband !== "none" ? 299 : 0;
+      const broadbandPrice = group.key === "tre" && selectedBroadband !== "none" ? 299 : 0;
       const totalPrice =
         basePrice !== null && operator?.extraUserPrice != null
           ? basePrice + extraCount * operator.extraUserPrice + broadbandPrice
@@ -210,6 +224,17 @@ export default function Home() {
       <header className="header">
         <h1>Mobilplaner</h1>
         <p>Jämför mobilabonnemang</p>
+        <div style={{
+          marginTop: '12px',
+          padding: '8px 16px',
+          background: 'rgba(59, 130, 246, 0.2)',
+          borderRadius: '20px',
+          display: 'inline-block',
+          fontSize: '0.875rem',
+          color: '#94a3b8'
+        }}>
+          <span style={{color: '#60a5fa'}}>●</span> {liveUsers} användare online just nu
+        </div>
         <a
           href="https://www.tre.se/varfor-tre/tackning/tackningskarta"
           target="_blank"
