@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, onDisconnect, set, serverTimestamp } from "firebase/database";
+import React, { useMemo, useState } from "react";
 import { getAllOperators, type OperatorPrices, type PlanPrice } from "../lib/operators";
 
 interface ApiOperator {
@@ -133,66 +131,6 @@ const operatorUrls: Record<string, string> = {
 };
 
 export default function Home() {
-  const [liveUsers, setLiveUsers] = useState(0);
-
-  useEffect(() => {
-    // Firebase Realtime Database for live user tracking
-    const firebaseConfig = {
-      apiKey: "AIzaSyDPDQJX_OpFrZzCrzWBoSRl-6zwqZAIYUU",
-      authDomain: "mobilplanerare.firebaseapp.com",
-      databaseURL: "https://mobilplanerare-default-rtdb.firebaseio.com",
-      projectId: "mobilplanerare",
-      storageBucket: "mobilplanerare.firebasestorage.app",
-      messagingSenderId: "229001665649",
-      appId: "1:229001665649:web:895318e0f4a1abbc800fd0",
-      measurementId: "G-WK4T11PTBH"
-    };
-
-    try {
-      const app = initializeApp(firebaseConfig);
-      const database = getDatabase(app);
-      const userRef = ref(database, 'presence/' + Date.now());
-      const connectedRef = ref(database, '.info/connected');
-      const usersRef = ref(database, 'users');
-
-      // Set user as online
-      set(userRef, true);
-
-      // Remove user when disconnected
-      onDisconnect(userRef).remove();
-
-      // Listen for connection status
-      onValue(connectedRef, (snapshot) => {
-        if (snapshot.val() === true) {
-          set(userRef, true);
-          onDisconnect(userRef).remove();
-        }
-      });
-
-      // Listen for user count
-      onValue(usersRef, (snapshot) => {
-        const users = snapshot.val();
-        setLiveUsers(users ? Object.keys(users).length : 0);
-      });
-
-      return () => {
-        set(userRef, false);
-      };
-    } catch (error) {
-      console.error('Firebase initialization error:', error);
-      // Fallback to simulated counter if Firebase fails
-      const interval = setInterval(() => {
-        setLiveUsers(prev => {
-          const change = Math.floor(Math.random() * 5) - 2;
-          const newValue = Math.max(1, prev + change);
-          return newValue;
-        });
-      }, 5000);
-
-      return () => clearInterval(interval);
-    }
-  }, []);
-
   const [selectedData, setSelectedData] = useState<Record<GroupKey, string>>({
     tre: "",
     telia: "",
@@ -383,32 +321,6 @@ export default function Home() {
           <p style={{marginTop: '8px'}}>Gjord med kärlek av er kära kollega Lukas Tidén Jonsson</p>
         </div>
       </main>
-
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        padding: '12px 20px',
-        background: 'rgba(15, 23, 42, 0.9)',
-        border: '1px solid rgba(148, 163, 184, 0.3)',
-        borderRadius: '30px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '0.875rem',
-        color: '#94a3b8',
-        backdropFilter: 'blur(10px)',
-        zIndex: 1000
-      }}>
-        <span style={{
-          width: '8px',
-          height: '8px',
-          background: '#22c55e',
-          borderRadius: '50%',
-          animation: 'pulse 2s infinite'
-        }}></span>
-        {liveUsers} online
-      </div>
     </div>
   );
 }
